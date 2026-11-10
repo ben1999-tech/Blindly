@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blindly</title>
+<style>
+:root{--bg:#fff1f3;--fg:#3b1f2b;--card:#fffafb;--mut:#9a6b7c;--acc:#e11d48;--line:#fbcfd8}
+@media (prefers-color-scheme:dark){:root{--bg:#1f0f17;--fg:#fde8ee;--card:#2c1420;--mut:#d3a1b3;--acc:#fb7185;--line:#4a2434;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:38px;color:var(--acc);text-align:center;margin:0 0 4px;animation:beat 2.6s ease-in-out infinite}
+h2{font-family:Georgia,serif;font-style:italic;font-size:18px;margin:0 0 10px}
+.sub,.mut{color:var(--mut);font-size:14px}.sub{text-align:center;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 6px 22px rgba(225,29,72,.10);animation:pop .5s ease both}
+label{display:block;font-weight:600;margin:12px 0 6px}
+input,select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit}
+input[type=checkbox]{width:auto;margin-right:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;font:inherit;font-size:14px;transition:transform .15s,background .2s}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff;animation:tap .3s}
+button.main{margin-top:16px;width:100%;padding:12px;border:0;border-radius:10px;background:linear-gradient(135deg,#fb7185,#e11d48);color:#fff;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(225,29,72,.35)}
+.best{border:2px solid var(--acc);animation:pop .5s ease both,glow 2.4s ease-in-out .6s infinite}
+.score{font-family:Georgia,serif;font-size:32px;font-weight:800;color:var(--acc)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px}
+.hidden{display:none}
+#res .card:nth-child(3){animation-delay:.15s}#res .card:nth-child(4){animation-delay:.3s}#res .card:nth-child(5){animation-delay:.45s}
+.hearts{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.hearts span{position:absolute;bottom:-40px;animation:rise linear infinite}
+@keyframes rise{0%{transform:translateY(0) rotate(0);opacity:0}10%{opacity:.55}100%{transform:translateY(-110vh) rotate(25deg);opacity:0}}
+@keyframes beat{0%,40%,100%{transform:scale(1)}10%,30%{transform:scale(1.07)}20%{transform:scale(1)}}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes glow{0%,100%{box-shadow:0 0 0 4px rgba(251,113,133,.2),0 10px 30px rgba(225,29,72,.2)}50%{box-shadow:0 0 0 9px rgba(251,113,133,.35),0 10px 40px rgba(225,29,72,.4)}}
+@keyframes tap{50%{transform:scale(1.15)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.hearts{display:none}}
+</style></head><body>
+<div class="hearts" id="hearts"></div>
+<main>
+<h1>💘 Blindly</h1>
+<p class="sub">Verlieb dich zuerst in das, was zählt: gemeinsame Leidenschaften und was die Sterne dazu sagen. Erzähl uns von dir und wir finden, wer gerade zu dir passt.</p>
+<div id="msg" class="card hidden"></div>
+<div class="card">
+ <h2>Dein Profil</h2>
+ <label for="nm">Spitzname</label><input id="nm" maxlength="24" placeholder="z. B. Alex">
+ <label for="sg">Sternzeichen</label><select id="sg"></select>
+ <label for="ge">Ich bin</label><select id="ge"></select>
+ <label for="se">Ich interessiere mich für</label><select id="se"></select>
+ <label>Hobbys</label><div class="chips" id="hb"></div>
+ <label><input type="checkbox" id="ok">Ich bin mindestens 18 Jahre alt.</label>
+ <button class="main" id="save">Mein Herzensmatch finden 💞</button>
+</div>
+<div id="res"></div>
+</main>
+<script>
+const HOBBIES=["Wandern","Lesen","Gaming","Kochen","Reisen","Fotografie","Musik","Sport","Kino","Tanzen","Malen","Yoga","Radfahren","Gärtnern","Programmieren","Brettspiele"];
+const SIGNS=["Widder","Stier","Zwillinge","Krebs","Löwe","Jungfrau","Waage","Skorpion","Schütze","Steinbock","Wassermann","Fische"];
+const GENDERS=["weiblich","männlich","divers"];
+const $=id=>document.getElementById(id);
+let sel=new Set(),profile=null,timer=null,lastSig=null;
+
+// anonyme Geräte-ID (kein Login nötig)
+let id=null;
+try{id=localStorage.getItem("blindly_id");if(!id){id=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now());localStorage.setItem("blindly_id",id)}}
+catch(e){id=String(Math.random()).slice(2)+Date.now()}
+
+function fill(el,opts){opts.forEach(o=>{const e=document.createElement("option");e.textContent=o;e.value=o;el.appendChild(e)})}
+fill($("sg"),SIGNS);fill($("ge"),GENDERS);fill($("se"),[...GENDERS,"alle"]);
+HOBBIES.forEach(h=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=h;
+ b.onclick=()=>{sel.has(h)?sel.delete(h):sel.add(h);b.classList.toggle("on")};$("hb").appendChild(b)});
+for(let i=0;i<14;i++){const h=document.createElement("span");h.textContent=["💗","💖","💘","💕"][i%4];h.style.left=Math.random()*100+"%";h.style.fontSize=14+Math.random()*18+"px";h.style.animationDuration=10+Math.random()*10+"s";h.style.animationDelay=-Math.random()*15+"s";$("hearts").appendChild(h)}
+
+function show(t){const m=$("msg");m.textContent=t;m.classList.remove("hidden")}
+function countUp(el,to){const t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/900);el.textContent=Math.round(to*(1-Math.pow(1-k,3)))+" %";if(k<1)requestAnimationFrame(f)})(t0)}
+
+function render(list){
+ const sig=list.map(m=>m.name+m.sign+m.pct).join("|");
+ if(sig===lastSig)return;lastSig=sig;
+ const box=$("res");box.textContent="";
+ const h=document.createElement("h2");h.textContent="Dein Herzensmatch 💞";box.appendChild(h);
+ if(!list.length){const c=document.createElement("div");c.className="card mut";
+  c.textContent="Gerade ist noch niemand Passendes online. Lass die Seite offen – vielleicht wartet dein Match schon um die Ecke. 💫";box.appendChild(c);return}
+ list.forEach((m,i)=>{
+  const c=document.createElement("div");c.className="card"+(i===0?" best":"");
+  const r=document.createElement("div");r.className="row";
+  const l=document.createElement("div");
+  const n=document.createElement("strong");n.textContent=(i===0?"💘 ":"")+m.name;
+  const d=document.createElement("div");d.className="mut";
+  const dot=document.createElement("span");dot.className="dot";d.appendChild(dot);
+  d.appendChild(document.createTextNode(m.sign+" · "+m.gender));
+  l.append(n,d);
+  const s=document.createElement("div");s.className="score";s.textContent="0 %";countUp(s,m.pct);
+  r.append(l,s);c.appendChild(r);
+  const t=document.createElement("div");t.className="mut";t.style.marginTop="8px";
+  t.textContent=m.common.length?"Gemeinsame Hobbys: "+m.common.join(", "):"Keine gemeinsamen Hobbys – dafür stehen die Sterne gut. ✨";
+  c.appendChild(t);box.appendChild(c)});
+}
+
+async function send(){
+ const r=await fetch("/api/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,...profile})});
+ if(!r.ok)throw new Error("save");
+}
+async function poll(){
+ try{
+  const r=await fetch("/api/matches?id="+encodeURIComponent(id));
+  if(r.status===404){await send();return poll()} // Server neu gestartet oder Profil abgelaufen
+  if(!r.ok)throw new Error("poll");
+  $("msg").classList.add("hidden");
+  render((await r.json()).matches);
+ }catch(e){show("Verbindung gestört – ich versuche es gleich erneut …")}
+}
+
+$("save").onclick=async()=>{
+ if(!$("ok").checked){show("Bitte bestätige, dass du mindestens 18 bist.");return}
+ profile={name:$("nm").value.trim()||"Anonym",sign:$("sg").value,gender:$("ge").value,seek:$("se").value,hobbies:[...sel]};
+ try{await send();lastSig=null;$("msg").classList.add("hidden");await poll();
+  if(!timer)timer=setInterval(poll,10000)}
+ catch(e){show("Speichern hat nicht geklappt. Versuch es bitte noch einmal.")}
+};
+</script></body></html>

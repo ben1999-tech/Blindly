@@ -1,0 +1,8 @@
+{
+  "name": "blindly",
+  "version": "1.0.0",
+  "description": "Blindly – Matching nach Hobbys, Sternzeichen und Wunsch-Geschlecht",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
